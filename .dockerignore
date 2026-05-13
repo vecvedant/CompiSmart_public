@@ -1,0 +1,36 @@
+# Don't ship local dev junk into Cloud Build.
+.git/
+.github/
+.venv/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+
+# Node side (when frontend lands)
+**/node_modules/
+**/dist/
+**/.next/
+
+# Secrets, never bake into image
+.env
+.env.local
+*.env
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build artifacts that shouldn't follow into the image
+backend/uvicorn.log
+backend/ingest_resp.json
+backend/.venv/
+backend/scripts/
+Compify/
+
+# Plan + agent metadata (not needed at runtime)
+.claude/

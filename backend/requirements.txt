@@ -1,0 +1,60 @@
+# Pins are FLOORS not equals (>=) for anything that ships C extensions, so
+# Python 3.14 dev installs work (3.14 wheels only exist for very recent
+# releases). Docker still gets a deterministic set via the lock file we
+# generate before deploy.
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.6
+pydantic>=2.10.1
+pydantic-settings>=2.10.1
+python-dotenv>=1.0.1
+
+# LLM / orchestration.
+# We pin to the LAST 0.3.x line of every langchain* package so the trio
+# stays semver-coherent. The 1.x line introduces breaking renames and is
+# not required for grounding. langchain-google-genai 2.1.12 is the first
+# version with reliable Google-Search-grounding support that we tested
+# end-to-end (see app/rag/grounded_llm.py for the two compatibility
+# shims it needs).
+langchain>=0.3.30
+langchain-core>=0.3.86
+langchain-google-genai>=2.1.12
+langchain-community>=0.3.31
+# We deliberately do NOT pull in `google-generativeai` (the deprecated
+# legacy SDK). It pins google-ai-generativelanguage==0.6.15, which
+# conflicts with langchain-google-genai 2.1.12's >=0.7 requirement.
+# All Gemini calls go through ChatGoogleGenerativeAI now -- chat,
+# verdict, sentiment classification, and keyword extraction.
+
+# Embeddings: Google's text-embedding-004 via the google-genai SDK.
+# google-genai comes in as a dep of langchain-google-genai, so we don't
+# need to list it explicitly. We dropped sentence-transformers + torch
+# (~1 GB install, ~500 MB RAM, ~10s cold start) — see app/rag/embeddings.py.
+
+# Vector DB
+qdrant-client>=1.12.0
+
+# Ingestion
+apify-client>=2.5.0
+yt-dlp>=2024.10.7
+youtube-transcript-api>=1.2.4
+deepgram-sdk>=3.7.4,<4
+pytrends>=4.9.2
+
+# HTTP / async
+httpx>=0.27.2
+aiofiles>=24.1.0
+
+# Structured store (sessions, assets, chat history, drafts, feed cache).
+# We talk to Supabase Postgres directly via asyncpg using the transaction
+# pooler URL — bypasses the REST API hop, fewer moving parts, no service-
+# role key juggling. statement_cache_size=0 is required because the pooler
+# (port 6543) is transaction-mode and doesn't survive prepared statements.
+asyncpg>=0.31.0
+
+# News + article extraction.
+feedparser>=6.0.11
+trafilatura>=1.12.2
+
+# Utility
+tiktoken>=0.8.0
+python-multipart>=0.0.10

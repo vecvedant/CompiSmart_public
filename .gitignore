@@ -1,0 +1,55 @@
+# env
+.env
+.env.local
+*.env
+
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+build/
+# Exception: backend/app/build/ is a real Python module (the Build-mode
+# writer pipeline). Without this exception git silently ignored it and
+# Cloud Run failed to start with ModuleNotFoundError: app.build.
+!backend/app/build/
+!backend/app/build/**
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# node
+node_modules/
+.next/
+.turbo/
+
+# misc
+.DS_Store
+Thumbs.db
+*.log
+
+# editor
+.vscode/
+.idea/
+
+# claude code agent metadata
+.claude/
+
+# unrelated nested project (has its own .git)
+Compify/
+
+# build artifacts
+backend/static/
+frontend/dist/
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+
+# local model cache (BGE will live in image once we Dockerize)
+.cache/

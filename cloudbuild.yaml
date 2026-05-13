@@ -1,0 +1,97 @@
+# Cloud Build pipeline that reuses layers from the previous image.
+#
+# Why: `gcloud run deploy --source .` (the Cloud Run "Continuous Deployment"
+# default) doesn't pass --cache-from, so every build re-downloads PyTorch
+# (~750 MB) and re-bakes the BGE model (~4 min) -- 12-17 min builds even
+# when nothing in requirements.txt changed.
+#
+# This pipeline:
+#   1. Pulls the :latest tag (best-effort -- ignores failure on first build)
+#   2. Builds with --cache-from :latest, so unchanged layers are reused
+#   3. Pushes both :latest and :$COMMIT_SHA tags
+#   4. Deploys $COMMIT_SHA to Cloud Run
+#
+# Result: first build ~12 min (no cache), subsequent ~2-3 min.
+#
+# To use this instead of the default --source build:
+#   - In the Cloud Run "Continuous Deployment" trigger settings, switch
+#     "Build configuration" from "Dockerfile" to "Cloud Build configuration
+#     file (yaml or json)" and point at /cloudbuild.yaml.
+#   - OR run manually: `gcloud builds submit --config cloudbuild.yaml`
+
+substitutions:
+  _REGION: asia-south1
+  _SERVICE: compismart
+  _REPO: cloud-run-source-deploy
+
+# Image path: REGION-docker.pkg.dev/PROJECT/REPO/SERVICE
+# (Cloud Run auto-creates this Artifact Registry repo on first --source deploy.)
+
+steps:
+  # 1. Pull the previous :latest if it exists. `|| true` so first build
+  #    doesn't fail when there's nothing to pull.
+  - id: pull-cache
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        docker pull ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:latest || \
+          echo "no cached image yet -- first build"
+
+  # 2. Build with cache-from. Layers that match the cached image (apt,
+  #    pip install, BGE bake) are reused -- only layers below the first
+  #    change actually rebuild.
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --cache-from=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:latest
+      - -t=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${COMMIT_SHA}
+      - -t=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:latest
+      - .
+
+  # 3. Push both tags (commit-pinned for the Cloud Run revision, :latest
+  #    so the next build can use it as cache).
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}
+
+  # 4. Deploy the commit-pinned tag to Cloud Run.
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${COMMIT_SHA}
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated
+      # 1 GiB: torch + sentence-transformers (~500 MB RAM) were dropped in
+      # v2 in favour of Gemini embeddings (zero local model). The remaining
+      # heavy parts are Apify-SDK + yt-dlp (one ingest at a time). 1 GiB
+      # is comfortable; bump to 2 GiB only if you re-add a local embedder.
+      - --memory=1Gi
+      - --cpu=1
+      - --concurrency=2
+      - --max-instances=3
+      - --timeout=300
+      - --quiet
+
+# Tell Cloud Build to record both tags in the build artifacts.
+images:
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${COMMIT_SHA}
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:latest
+
+# Use a beefier build VM so the pip install + BGE bake step itself is faster.
+# E2_HIGHCPU_8 has 8 vCPU, 8 GB RAM. Free tier covers ~120 build-min/day.
+options:
+  machineType: E2_HIGHCPU_8
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 1800s  # 30 min cap; first build needs ~15, cached builds ~3

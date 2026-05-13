@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  @apply font-sans text-slate-700 antialiased;
+  background: #f8fafc;
+}
+
+/* Shimmer gradient for the loading progress bar */
+.progress-bar-glow {
+  background: linear-gradient(
+    90deg,
+    rgba(249, 115, 22, 1) 0%,
+    rgba(255, 164, 91, 1) 50%,
+    rgba(249, 115, 22, 1) 100%
+  );
+  background-size: 200% 100%;
+  @apply animate-shimmer;
+}
+
+/* Streaming cursor at the tail of the AI response */
+.streaming-cursor {
+  display: inline-block;
+  width: 0.5em;
+  height: 1em;
+  background: #f97316;
+  margin-left: 2px;
+  vertical-align: middle;
+  @apply animate-blink;
+}
+
+/* Slim, polite scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }

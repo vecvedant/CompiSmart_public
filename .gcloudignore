@@ -1,0 +1,43 @@
+# Cloud Build ignore. Overrides .gitignore for the source upload.
+# Specifically: we do NOT want `build/` excluded because it's a Python
+# module (backend/app/build/) — Python uses `build` as a package name
+# and ruling it out kills the deploy with ModuleNotFoundError.
+
+# Same exclusions as .dockerignore, minus anything that would kill
+# our application code.
+.git/
+.github/
+.venv/
+backend/.venv/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+
+# Frontend build artifacts (rebuilt inside the Docker stage)
+**/node_modules/
+**/.next/
+**/dist/
+
+# Secrets — never bake into image
+.env
+.env.local
+*.env
+!.env.example
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local run artefacts
+backend/uvicorn.log
+backend/ingest_resp.json
+backend/install.log
+backend/static/
+
+# Plan / agent metadata
+.claude/
